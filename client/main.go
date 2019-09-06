@@ -15,6 +15,8 @@ type SendJson struct {
 	Params      []string
 }
 
+const version = "1.0"
+
 func main() {
 	for {
 		ToServer()
@@ -39,7 +41,13 @@ func ToServer() {
 			continue
 		}
 		if receive.SendType == "111" {
-			execCommand(receive.CommandName, receive.Params, conn)
+			switch receive.CommandName {
+			case "-v":
+				conn.Write([]byte("client " + version + "\n"))
+			default:
+				execCommand(receive.CommandName, receive.Params, conn)
+			}
+
 		}
 	}
 }
