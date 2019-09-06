@@ -28,7 +28,7 @@ func main() {
 	}()
 	conns = make(map[string]net.Conn)
 	// tcp 监听并接受端口
-	l, err := net.Listen("tcp", "0.0.0.0:6611")
+	l, err := net.Listen("tcp", "0.0.0.0:10000")
 	if err != nil {
 		fmt.Println(err)
 		return
