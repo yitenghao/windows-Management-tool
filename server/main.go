@@ -23,9 +23,6 @@ var conns map[string]net.Conn
 const version = "1.0"
 
 func main() {
-	defer func() {
-		recover()
-	}()
 	conns = make(map[string]net.Conn)
 	// tcp 监听并接受端口
 	l, err := net.Listen("tcp", "0.0.0.0:10000")
@@ -56,11 +53,12 @@ func main() {
 			if len(arr) > 0 {
 				switch arr[0] {
 				case "-help":
-					fmt.Println("-a                     获取所有连接")
-					fmt.Println("-t [ip:port] [Command] 向指定连接发送信息")
-					fmt.Println("-v                     获取服务端版本信息")
-					fmt.Println("[Command]              向全部连接发送信息")
-					fmt.Println("if CommandName==-v     返回客户端版本信息")
+					fmt.Println("-a                       获取所有连接")
+					fmt.Println("-t [ip:port] [Command]   向指定连接发送信息")
+					fmt.Println("-v                       获取服务端版本信息")
+					fmt.Println("[Command]                向全部连接发送信息")
+					fmt.Println("if CommandName== -v      返回客户端版本信息")
+					fmt.Println("if CommandName== -exit   关闭客户端")
 				case "-a":
 					GetAllConn(conns)
 				case "-t":
