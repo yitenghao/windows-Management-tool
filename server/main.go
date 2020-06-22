@@ -26,7 +26,9 @@ type Conn struct {
 }
 var conns map[string]Conn
 
-const version = "1.0"
+const version = "1.1"
+var pingpong=1*time.Minute
+var timeout=3*pingpong
 
 func main() {
 	conns = make(map[string]Conn)
@@ -130,7 +132,7 @@ func handleConnection(c net.Conn) {
 				if err != nil || io.EOF == err {
 					fmt.Println(err)
 					cancelfunc()
-
+					goto OUTLOOP
 				}
 				thisconn.ReadData<-data
 			}
@@ -141,7 +143,7 @@ func handleConnection(c net.Conn) {
 	//ping:=[]byte(`PING\n`)
 	//处理读取的数据和心跳
 	go func(contx context.Context,cancelfunc context.CancelFunc,thisconn Conn) {
-		timer:=time.AfterFunc(30*time.Second, func() {
+		timer:=time.AfterFunc(timeout, func() {
 			cancelfunc()
 		})
 		for{
@@ -151,13 +153,14 @@ func handleConnection(c net.Conn) {
 			case data:=<-thisconn.ReadData:
 				if string(data) =="PING\n" {
 					timer.Stop()
-					timer=time.AfterFunc(30*time.Second, func() {
+					timer=time.AfterFunc(timeout, func() {
 						cancelfunc()
 					})
 					//timer.Reset(20*time.Second)
 					thisconn.WriteData<-[]byte(`PONG`)
 					continue
 				}
+				fmt.Println(thisconn.C.RemoteAddr().String())
 				fmt.Print(ConvertToString(string(data), "GBK", "UTF-8"))
 			}
 		}

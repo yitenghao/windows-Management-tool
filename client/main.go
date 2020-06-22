@@ -17,15 +17,17 @@ type SendJson struct {
 	Params      []string
 }
 
-const version = "1.0"
+const version = "1.1"
 var conn net.Conn
+var pingpong=1*time.Minute
+var timeout=3*pingpong
 //写数据的管道 保证并发安全
 var WriteData =make(chan []byte)
 var ReadData =make(chan []byte)
 func main() {
 	for {
 		ToServer()
-		time.Sleep(10 * time.Second)
+		time.Sleep(pingpong)
 	}
 }
 func ToServer() {
@@ -41,7 +43,7 @@ func ToServer() {
 
 	//10秒心跳
 	go func(contx context.Context){
-		ticker:=time.NewTicker(10*time.Second)
+		ticker:=time.NewTicker(pingpong)
 		defer ticker.Stop()
 		for{
 			select{
@@ -70,7 +72,7 @@ func ToServer() {
 	}(ctx)
 	//处理读取的数据和心跳
 	go func(contx context.Context,cancelfunc context.CancelFunc){
-		timer:=time.AfterFunc(30*time.Second, func() {
+		timer:=time.AfterFunc(timeout, func() {
 			cancelfunc()
 			fmt.Println("超时")
 		})
@@ -80,9 +82,9 @@ func ToServer() {
 				goto OUTLOOP
 			case data:=<-ReadData:
 				if string(data)=="PONG\n"{
-					fmt.Println(string(data))
+					//fmt.Println(string(data))
 					timer.Stop()
-					timer=time.AfterFunc(30*time.Second, func() {
+					timer=time.AfterFunc(timeout, func() {
 						cancelfunc()
 						fmt.Println("超时")
 					})
@@ -123,6 +125,7 @@ func ToServer() {
 				if err != nil || io.EOF == err {
 					fmt.Println(err)
 					cancelfunc()
+					goto OUTLOOP
 				}
 
 				ReadData<-data
@@ -150,7 +153,6 @@ func execCommand(commandName string, params []string ) {
 	}
 	reader := bufio.NewReader(stdout)
 	lines := []byte{}
-	lines = append(lines, []byte(conn.LocalAddr().String())...)
 	for {
 		line, err2 := reader.ReadBytes('\n')
 		lines = append(lines, line...)
