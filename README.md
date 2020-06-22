@@ -18,6 +18,10 @@ go run main.go
 
 
 操作方法：
+
+客户端Dial的ip修改为服务端IP
+
+
 服务端运行之后，直接在控制台输入指令，如：where powershell
 
 
