@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,7 +21,7 @@ type SendJson struct {
 
 const version = "1.1"
 var conn net.Conn
-var pingpong=1*time.Minute
+var pingpong=10*time.Second
 var timeout=3*pingpong
 //写数据的管道 保证并发安全
 var WriteData =make(chan []byte)
@@ -32,7 +34,7 @@ func main() {
 }
 func ToServer() {
 	var err error
-	conn, err = net.Dial("tcp", "192.168.1.1:10000")
+	conn, err = net.Dial("tcp", "127.0.0.1:10000")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -63,7 +65,11 @@ func ToServer() {
 			case <-contx.Done():
 				goto OUTLOOP
 			case data:=<-WriteData:
-				conn.Write(append(data,'\n'))
+				//头部5 byte
+				//后接报文正文
+				b,_:=IntToByte(int64(len(data)))
+				fmt.Printf("bytes: % x \n", b)
+				conn.Write(append(b,data...))
 
 			}
 		}
@@ -82,7 +88,7 @@ func ToServer() {
 				goto OUTLOOP
 			case data:=<-ReadData:
 				if string(data)=="PONG\n"{
-					//fmt.Println(string(data))
+					fmt.Println(string(data))
 					timer.Stop()
 					timer=time.AfterFunc(timeout, func() {
 						cancelfunc()
@@ -134,6 +140,7 @@ func ToServer() {
 		OUTLOOP:
 			fmt.Println("读取连接中的数据已结束")
 	}(ctx,cancel)
+
 	<-ctx.Done()
 	fmt.Println("断开连接")
 	conn.Close()
@@ -165,3 +172,8 @@ func execCommand(commandName string, params []string ) {
 	return
 }
 
+func IntToByte(data int64)(b []byte,err error){
+	bytesBuffer := bytes.NewBuffer([]byte{})
+	err=binary.Write(bytesBuffer, binary.BigEndian, data)
+	return bytesBuffer.Bytes(),err
+}

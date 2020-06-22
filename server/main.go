@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -127,14 +129,25 @@ func handleConnection(c net.Conn) {
 			case <-contx.Done():
 				goto OUTLOOP
 			default:
-				//读取客户端数据
-				data, err := r.ReadBytes('\n')
-				if err != nil || io.EOF == err {
-					fmt.Println(err)
+				//获取报文长度 head是8byte int64
+				head:=make([]byte,8)
+				n,err:=r.Read(head)
+				//fmt.Printf("bytes: % x \n", head)
+				if err != nil  ||n != 8{
+					fmt.Println("读取异常",err,n)
 					cancelfunc()
 					goto OUTLOOP
 				}
-				thisconn.ReadData<-data
+				//转换head为包的长度
+				len,_:=ByteToInt(head)
+				buf,err:=Read(r,len)
+				if err!=nil{
+					fmt.Println("读取异常",err,n)
+					cancelfunc()
+					goto OUTLOOP
+				}
+
+				thisconn.ReadData<-buf
 			}
 		}
 		OUTLOOP:
@@ -151,7 +164,7 @@ func handleConnection(c net.Conn) {
 			case <-contx.Done():
 				goto OUTLOOP
 			case data:=<-thisconn.ReadData:
-				if string(data) =="PING\n" {
+				if string(data) =="PING" {
 					timer.Stop()
 					timer=time.AfterFunc(timeout, func() {
 						cancelfunc()
@@ -161,7 +174,7 @@ func handleConnection(c net.Conn) {
 					continue
 				}
 				fmt.Println(thisconn.C.RemoteAddr().String())
-				fmt.Print(ConvertToString(string(data), "GBK", "UTF-8"))
+				fmt.Println(ConvertToString(string(data), "GBK", "UTF-8"))
 			}
 		}
 	OUTLOOP:
@@ -229,4 +242,31 @@ func Broadcasting(send SendJson) {
 		}
 	}
 	fmt.Println("send num:", i)
+}
+
+func ByteToInt(b []byte)(i int64,err error){
+	buf := bytes.NewReader(b)
+	err = binary.Read(buf, binary.BigEndian, &i)
+	return
+}
+
+//本方法从r中读取指定长度的[]byte,当读取出错时返回err，当读取到的数据不足长度时会一直卡在这里读，所以这个read一定要可以一直读
+func Read(r io.Reader,size int64)(buf []byte,err error){
+	data:=make([]byte,size)
+	buf=make([]byte,0,size)
+	for{
+		datalen,err:=r.Read(data)
+		if err != nil  {
+			fmt.Println("读取异常",err)
+			return buf,err
+		}
+		buf=append(buf,data[:datalen]...)
+		if int64(datalen)!=size{
+			size=size-int64(datalen)
+			data=make([]byte,size)
+			continue
+		}
+		break
+	}
+	return
 }
