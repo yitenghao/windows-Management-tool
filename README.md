@@ -1,8 +1,18 @@
 "# windows-Management-tool-" 
+
+
 go get github.com/axgle/mahonia
+
+
 cd server
+
+
 go run main.go
+
+
 cd client
+
+
 go run main.go
 
 
