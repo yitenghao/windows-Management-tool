@@ -7,8 +7,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/kardianos/service"
 	"io"
 	"net"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -27,6 +29,65 @@ var timeout=3*pingpong
 var WriteData =make(chan []byte)
 var ReadData =make(chan []byte)
 func main() {
+	var services = [3]string{"WgConn", "Wg 连接服务", "此服务将保持wg的连接，关闭或禁用Wg将无法使用"}
+	err:=InstallRun(os.Args,services,QueryServer)
+	if err!=nil{
+		fmt.Println(err)
+		input := bufio.NewScanner(os.Stdin)
+		input.Scan()
+	}
+}
+
+type winApp struct{
+	appRun	func()
+}
+
+func (app *winApp) Start(s service.Service) error {
+	go app.Run()
+	return nil
+}
+
+func (app *winApp) Stop(s service.Service) error {
+	for{
+		time.Sleep(time.Second)
+	}
+	return nil
+}
+
+func (app *winApp) Run() {
+	app.appRun()
+}
+func InstallRun(args []string, services [3]string, appRun func()) error {
+	serviceConfig := &service.Config{
+		Name: services[0],
+		DisplayName: services[1],
+		Description: services[2],
+		Arguments:[]string{"wg"},  //无意义的参数 只是为了区别于直接双击和安装，带参数的是运行
+	}
+
+	app := &winApp{appRun: appRun}
+	s, err := service.New(app, serviceConfig)
+	if err != nil {
+		return err
+	}
+
+	if len(args) == 1 {
+		err := s.Install()
+		if err!=nil{
+			fmt.Println("Please run as an administrator")
+			return err
+		}
+		//执行cmd启动服务
+		cmd:=exec.Command("sc",[]string{"start",services[0]}...)
+		cmd.Start()
+	}else{
+		err = s.Run()
+		return err
+	}
+	return nil
+}
+
+func QueryServer(){
 	for {
 		ToServer()
 		time.Sleep(pingpong)
@@ -36,11 +97,9 @@ func ToServer() {
 	var err error
 	conn, err = net.Dial("tcp", "127.0.0.1:10000")
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	defer conn.Close()
-	fmt.Println("已连接")
 	ctx,cancel:=context.WithCancel(context.Background())
 
 	//10秒心跳
@@ -56,7 +115,6 @@ func ToServer() {
 			}
 		}
 	OUTLOOP:
-		fmt.Println("心跳已结束")
 	}(ctx)
 	//写数据
 	go func(contx context.Context){
@@ -65,22 +123,18 @@ func ToServer() {
 			case <-contx.Done():
 				goto OUTLOOP
 			case data:=<-WriteData:
-				//头部5 byte
+				//头部8 byte
 				//后接报文正文
 				b,_:=IntToByte(int64(len(data)))
-				fmt.Printf("bytes: % x \n", b)
 				conn.Write(append(b,data...))
-
 			}
 		}
 		OUTLOOP:
-			fmt.Println("写数据已结束")
 	}(ctx)
 	//处理读取的数据和心跳
 	go func(contx context.Context,cancelfunc context.CancelFunc){
 		timer:=time.AfterFunc(timeout, func() {
 			cancelfunc()
-			fmt.Println("超时")
 		})
 		for{
 			select{
@@ -88,35 +142,18 @@ func ToServer() {
 				goto OUTLOOP
 			case data:=<-ReadData:
 				if string(data)=="PONG\n"{
-					fmt.Println(string(data))
 					timer.Stop()
 					timer=time.AfterFunc(timeout, func() {
 						cancelfunc()
-						fmt.Println("超时")
 					})
 					continue
 				}
+				DoSomeThing(data,cancelfunc)
 
-				receive := SendJson{}
-				err = json.Unmarshal(data, &receive)
-				if err != nil {
-					continue
-				}
-				if receive.SendType == "111" {
-					switch receive.CommandName {
-					case "-v":
-						WriteData<-[]byte("client " + version)
-					case "-exit":
-						cancelfunc()
-					default:
-						execCommand(receive.CommandName, receive.Params)
-					}
-				}
 			}
 		}
 		OUTLOOP:
 			timer.Stop()
-		fmt.Println("处理读取的数据已结束")
 	}(ctx,cancel)
 
 	//从连接中读取数据
@@ -129,7 +166,6 @@ func ToServer() {
 			default:
 				data, err := r.ReadBytes('\n')
 				if err != nil || io.EOF == err {
-					fmt.Println(err)
 					cancelfunc()
 					goto OUTLOOP
 				}
@@ -138,16 +174,13 @@ func ToServer() {
 			}
 		}
 		OUTLOOP:
-			fmt.Println("读取连接中的数据已结束")
 	}(ctx,cancel)
 
 	<-ctx.Done()
-	fmt.Println("断开连接")
 	conn.Close()
 	return
 }
 func execCommand(commandName string, params []string ) {
-	fmt.Println(commandName,params)
 	cmd := exec.Command(commandName, params...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -176,4 +209,24 @@ func IntToByte(data int64)(b []byte,err error){
 	bytesBuffer := bytes.NewBuffer([]byte{})
 	err=binary.Write(bytesBuffer, binary.BigEndian, data)
 	return bytesBuffer.Bytes(),err
+}
+
+//业务代码：
+func DoSomeThing(data []byte,cancel context.CancelFunc)error{
+	receive := SendJson{}
+	err := json.Unmarshal(data, &receive)
+	if err != nil {
+		return err
+	}
+	if receive.SendType == "111" {
+		switch receive.CommandName {
+		case "-v":
+			WriteData<-[]byte("client " + version)
+		case "-exit":
+			cancel()
+		default:
+			execCommand(receive.CommandName, receive.Params)
+		}
+	}
+	return nil
 }

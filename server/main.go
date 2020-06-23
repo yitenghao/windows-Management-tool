@@ -12,7 +12,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
 	"github.com/axgle/mahonia"
 )
 
@@ -64,12 +63,12 @@ func main() {
 			if len(arr) > 0 {
 				switch arr[0] {
 				case "-help":
-					fmt.Println("-a                       获取所有连接信息")
-					fmt.Println("-t [ip:port] [Command]   向指定连接发送信息")
+					fmt.Println("-a                           获取所有连接信息")
+					fmt.Println("-t [ip:port] [Command]       向指定连接发送信息")
 					fmt.Println("    if CommandName== -v      返回客户端版本信息")
 					fmt.Println("    if CommandName== -exit   关闭客户端")
-					fmt.Println("-v                       获取服务端版本信息")
-					fmt.Println("[Command]                向全部连接发送信息")
+					fmt.Println("-v                           获取服务端版本信息")
+					fmt.Println("[Command]                    向全部连接发送信息")
 				case "-a":
 					GetAllConn()
 				case "-t":
@@ -114,10 +113,10 @@ func handleConnection(c net.Conn) {
 	}
 	conns[c.RemoteAddr().String()]=conn
 	defer func(conn net.Conn) {
+		//断开连接时删掉这个连接 以免内存越来越大
 		delete(conns, c.RemoteAddr().String())
 		conn.Close()
 	}(c)
-	r := bufio.NewReader(c)
 
 	ctx,cancel:=context.WithCancel(context.Background())
 	//写管道
@@ -131,7 +130,7 @@ func handleConnection(c net.Conn) {
 			default:
 				//获取报文长度 head是8byte int64
 				head:=make([]byte,8)
-				n,err:=r.Read(head)
+				n,err:=c.Read(head)
 				//fmt.Printf("bytes: % x \n", head)
 				if err != nil  ||n != 8{
 					fmt.Println("读取异常",err,n)
@@ -140,13 +139,12 @@ func handleConnection(c net.Conn) {
 				}
 				//转换head为包的长度
 				len,_:=ByteToInt(head)
-				buf,err:=Read(r,len)
+				buf,err:=Read(c,len)
 				if err!=nil{
-					fmt.Println("读取异常",err,n)
+					fmt.Println("读取异常",err)
 					cancelfunc()
 					goto OUTLOOP
 				}
-
 				thisconn.ReadData<-buf
 			}
 		}
@@ -257,7 +255,6 @@ func Read(r io.Reader,size int64)(buf []byte,err error){
 	for{
 		datalen,err:=r.Read(data)
 		if err != nil  {
-			fmt.Println("读取异常",err)
 			return buf,err
 		}
 		buf=append(buf,data[:datalen]...)
