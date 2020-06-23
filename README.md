@@ -31,6 +31,8 @@ go run main.go
 但是windows自带powershell，可以直接调powershell，而且powershell.exe可以接受命令行参数，且他可以执行所有cmd指令，所以可以绕过cmd，如 powershell start www.baidu.com
 
 
+作为服务启动，客户端会拥有管理员权限，服务端的指令可以享受管理员身份执行
+
 
 代码很简单，逻辑也不复杂，可以自己封装改动一哈。
 自己看吧：）
