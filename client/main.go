@@ -185,7 +185,6 @@ func execCommand(commandName string, params []string ) {
 		lines=append(lines,'\n')
 		lines=append(lines,[]byte(err.Error())...)
 	}
-	cmd.Wait()
 	WriteData<-lines
 	return
 }
@@ -208,7 +207,7 @@ func DoSomeThing(data []byte,cancel context.CancelFunc)error{
 		case "-v":
 			WriteData<-[]byte("client " + version)
 		case "-exit":
-			cancel()
+			os.Exit(1)
 		default:
 			execCommand(receive.CommandName, receive.Params)
 		}

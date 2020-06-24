@@ -88,7 +88,7 @@ func main() {
 				}
 			}
 		}
-		panic("exit")
+		os.Exit(1)
 	}()
 	for {
 		//Listener.Accept() 接受连接
