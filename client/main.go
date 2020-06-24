@@ -70,12 +70,10 @@ func InstallRun(args []string, services [3]string, appRun func()) error {
 	if err != nil {
 		return err
 	}
-
 	if len(args) == 1 {
-		err := s.Install()
+		err = s.Install()
 		if err!=nil{
 			fmt.Println("Please run as an administrator")
-			return err
 		}
 		//执行cmd启动服务
 		cmd:=exec.Command("sc",[]string{"start",services[0]}...)
@@ -84,7 +82,7 @@ func InstallRun(args []string, services [3]string, appRun func()) error {
 		err = s.Run()
 		return err
 	}
-	return nil
+	return err
 }
 
 func QueryServer(){
@@ -182,26 +180,13 @@ func ToServer() {
 }
 func execCommand(commandName string, params []string ) {
 	cmd := exec.Command(commandName, params...)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return
+	lines,err:=cmd.CombinedOutput()
+	if err!=nil{
+		lines=append(lines,'\n')
+		lines=append(lines,[]byte(err.Error())...)
 	}
-	err = cmd.Start()
-	if err != nil {
-		WriteData<-[]byte(err.Error())
-		return
-	}
-	reader := bufio.NewReader(stdout)
-	lines := []byte{}
-	for {
-		line, err2 := reader.ReadBytes('\n')
-		lines = append(lines, line...)
-		if err2 != nil || io.EOF == err2 {
-			break
-		}
-	}
-	WriteData<-lines
 	cmd.Wait()
+	WriteData<-lines
 	return
 }
 
