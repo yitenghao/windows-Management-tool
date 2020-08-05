@@ -4,6 +4,12 @@
 go get github.com/axgle/mahonia
 
 
+go get github.com/akavel/rsrc
+
+
+go install github.com/akavel/rsrc
+
+
 cd server
 
 
@@ -38,3 +44,6 @@ go run main.go
 自己看吧：）
 
 --共同学习，共同进步--
+
+
+client文件夹下的1.ico是图标文件，ico.manifest文件是清单文件，里面配置了开启图标和管理员算法提示，使用`rsrc.exe -manifest ico.manifest -o myapp.syso -ico myapp.ico`生成.syso文件，放到main所在文件夹下，build时会加载并应用。
