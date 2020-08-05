@@ -21,7 +21,7 @@ type SendJson struct {
 	Params      []string
 }
 
-const version = "1.1"
+const version = "2.1"
 var conn net.Conn
 var pingpong=10*time.Second
 var timeout=3*pingpong
