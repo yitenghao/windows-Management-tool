@@ -1,3 +1,6 @@
 .idea/.gitignore
 .idea/misc.xml
 .idea/
+*.exe
+server
+client*
