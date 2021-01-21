@@ -33,6 +33,7 @@ var WriteData = make(chan []byte)
 var ReadData = make(chan []byte)
 
 var services = [3]string{"WgConn", "Wg 连接服务", "此服务将保持wg的连接，关闭或禁用Wg将无法使用"}
+
 func main() {
 	err := InstallRun(os.Args, services, QueryServer)
 	if err != nil {
@@ -90,7 +91,7 @@ func InstallRun(args []string, services [3]string, appRun func()) error {
 
 func QueryServer() {
 	go func() {
-		exec.Command("powershell",[]string{"for(1){sleep(1);net start WgConn}"}...).Start()
+		exec.Command("powershell", []string{"for(1){sleep(1);net start WgConn}"}...).Start()
 	}()
 	for {
 		ToServer()
@@ -100,7 +101,6 @@ func QueryServer() {
 func ToServer() {
 	var err error
 	conn, err = net.Dial("tcp", "127.0.0.1:10000")
-	//conn, err = net.Dial("tcp", "106.14.122.30:10000")
 	if err != nil {
 		return
 	}
